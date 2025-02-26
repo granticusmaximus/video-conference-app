@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useParams, useHistory } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db, storage } from './firebase.js';
-import { ref, deleteObject } from 'firebase/storage';
+import { db, storage } from '../server/firebase';
+import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const Profile = () => {
   const { userId } = useParams();
-  const history = useHistory();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false); // To toggle between view and edit mode
   const [formData, setFormData] = useState({});

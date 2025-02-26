@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 
 const Login = () => {
-  const history = useHistory();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -26,29 +26,24 @@ const Login = () => {
     const auth = getAuth();
 
     try {
-      // Sign the user in with Firebase Authentication
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Redirect to the user's profile page after successful login
-      history.push(`/profile/${user.uid}`);
+      navigate(`/profile/${user.uid}`);
     } catch (err) {
-      // Handle errors (invalid credentials, etc.)
       setError('Invalid email or password. Please try again.');
     }
   };
 
   return (
     <div className="container mx-auto p-4">
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-lg">
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm mx-auto">
         <h2 className="text-2xl font-bold text-center mb-4">Login</h2>
 
         {error && <p className="text-red-500">{error}</p>}
 
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700" htmlFor="email">
-            Email
-          </label>
+          <label className="block text-sm font-medium text-gray-700" htmlFor="email">Email</label>
           <input
             id="email"
             name="email"
@@ -61,9 +56,7 @@ const Login = () => {
         </div>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700" htmlFor="password">
-            Password
-          </label>
+          <label className="block text-sm font-medium text-gray-700" htmlFor="password">Password</label>
           <input
             id="password"
             name="password"

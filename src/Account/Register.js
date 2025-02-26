@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth, db, storage } from './firebaseConfig';
+import { auth, db, storage } from '../server/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const Register = () => {
-  const history = useHistory();
+    const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -68,7 +68,7 @@ const Register = () => {
       });
 
       // Redirect to the user's profile page after successful registration
-      history.push(`/profile/${user.uid}`);
+      navigate(`/profile/${user.uid}`);
     } catch (err) {
       setError(err.message);
     }
