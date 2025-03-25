@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { v4 as uuidv4 } from "uuid";
+import ChatControls from "./ChatControls";
 
-const socket = io("http://localhost:5000"); // Replace with your backend URL if deployed
+const socket = io("http://localhost:5000"); // Replace with your deployed server if needed
 
 const Chat = ({ roomId = "global" }) => {
   const { user } = useAuth();
@@ -18,9 +19,7 @@ const Chat = ({ roomId = "global" }) => {
       setMessages((prev) => [...prev, data]);
     });
 
-    return () => {
-      socket.off("receive_message");
-    };
+    return () => socket.off("receive_message");
   }, [roomId]);
 
   const handleSend = () => {
@@ -35,12 +34,20 @@ const Chat = ({ roomId = "global" }) => {
     };
 
     socket.emit("send_message", msgData);
-    setMessages((prev) => [...prev, msgData]); // Optimistic UI
+    setMessages((prev) => [...prev, msgData]);
     setMessage("");
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") handleSend();
+  const handleFileUpload = (file) => {
+    const msgData = {
+      id: uuidv4(),
+      text: `📎 ${file.name}`,
+      sender: user?.email || "Guest",
+      time: new Date().toLocaleTimeString(),
+      room: roomId,
+    };
+    socket.emit("send_message", msgData);
+    setMessages((prev) => [...prev, msgData]);
   };
 
   useEffect(() => {
@@ -64,22 +71,12 @@ const Chat = ({ roomId = "global" }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="mt-3 flex">
-        <input
-          type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="flex-grow border border-gray-300 rounded-l px-3 py-2 focus:outline-none"
-          placeholder="Type a message..."
-        />
-        <button
-          onClick={handleSend}
-          className="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700"
-        >
-          Send
-        </button>
-      </div>
+      <ChatControls
+        message={message}
+        setMessage={setMessage}
+        handleSend={handleSend}
+        onFileUpload={handleFileUpload}
+      />
     </div>
   );
 };
