@@ -1,10 +1,9 @@
 import { useEffect, useState, useRef } from "react";
-import { io } from "socket.io-client";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../Context/AuthContext";
 import { v4 as uuidv4 } from "uuid";
+import { db } from "../Utils/firebase";
+import { collection, addDoc, query, orderBy, onSnapshot } from "firebase/firestore";
 import ChatControls from "./ChatControls";
-
-const socket = io("http://localhost:5000"); // Replace with your deployed server if needed
 
 const Chat = ({ roomId = "global" }) => {
   const { user } = useAuth();
@@ -13,16 +12,15 @@ const Chat = ({ roomId = "global" }) => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    socket.emit("join_room", roomId);
-
-    socket.on("receive_message", (data) => {
-      setMessages((prev) => [...prev, data]);
+    const q = query(collection(db, "messages", roomId, "chat"), orderBy("timestamp"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setMessages(snapshot.docs.map(doc => doc.data()));
     });
 
-    return () => socket.off("receive_message");
+    return () => unsubscribe();
   }, [roomId]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!message.trim()) return;
 
     const msgData = {
@@ -30,24 +28,23 @@ const Chat = ({ roomId = "global" }) => {
       text: message,
       sender: user?.email || "Guest",
       time: new Date().toLocaleTimeString(),
-      room: roomId,
+      timestamp: new Date(),
     };
 
-    socket.emit("send_message", msgData);
-    setMessages((prev) => [...prev, msgData]);
+    await addDoc(collection(db, "messages", roomId, "chat"), msgData);
     setMessage("");
   };
 
-  const handleFileUpload = (file) => {
+  const handleFileUpload = async (file) => {
     const msgData = {
       id: uuidv4(),
       text: `📎 ${file.name}`,
       sender: user?.email || "Guest",
       time: new Date().toLocaleTimeString(),
-      room: roomId,
+      timestamp: new Date(),
     };
-    socket.emit("send_message", msgData);
-    setMessages((prev) => [...prev, msgData]);
+
+    await addDoc(collection(db, "messages", roomId, "chat"), msgData);
   };
 
   useEffect(() => {
