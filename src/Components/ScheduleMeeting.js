@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../Context/AuthContext";
 
 const ScheduleMeeting = () => {
   const [link, setLink] = useState("");
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const createMeeting = () => {
+    if (!user) return alert("You must be logged in to create a meeting.");
     const id = uuidv4();
     setLink(`${window.location.origin}/meeting/${id}`);
   };

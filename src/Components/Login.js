@@ -5,6 +5,8 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
+import { db } from '../Utils/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -32,6 +34,23 @@ const Login = () => {
         return;
       }
 
+      // Ensure Firestore user profile exists
+      const userDocRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(userDocRef);
+      if (!docSnap.exists()) {
+        await setDoc(userDocRef, {
+          firstName: '',
+          lastName: '',
+          email: user.email,
+          dob: '',
+          gender: '',
+          city: '',
+          state: '',
+          phone: '',
+          profilePic: ''
+        });
+      }
+
       navigate(`/profile/${user.uid}`);
     } catch (err) {
       setError('Invalid email or password. Please try again.');
@@ -39,11 +58,12 @@ const Login = () => {
   };
 
   const handlePasswordReset = async () => {
+    if (!formData.email) {
+      setError('Please enter your email address first.');
+      return;
+    }
+
     try {
-      if (!formData.email) {
-        setError('Please enter your email address first.');
-        return;
-      }
       await sendPasswordResetEmail(getAuth(), formData.email);
       setInfo('Password reset email sent.');
     } catch (err) {
@@ -97,9 +117,9 @@ const Login = () => {
 
         <div className="mt-4 text-center">
           <p className="text-sm">
-            Don’t have an account?{' '}
+            Don't have an account?{' '}
             <Link to="/register" className="text-blue-500 hover:text-blue-700">
-              Create one here
+              Register here
             </Link>
           </p>
         </div>

@@ -6,27 +6,29 @@ import { collection, addDoc, query, orderBy, onSnapshot } from "firebase/firesto
 import ChatControls from "./ChatControls";
 
 const Chat = ({ roomId = "global" }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
+    if (loading) return;
+
     const q = query(collection(db, "messages", roomId, "chat"), orderBy("timestamp"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(doc => doc.data()));
     });
 
     return () => unsubscribe();
-  }, [roomId]);
+  }, [roomId, loading]);
 
   const handleSend = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || !user) return;
 
     const msgData = {
       id: uuidv4(),
       text: message,
-      sender: user?.email || "Guest",
+      sender: user.email,
       time: new Date().toLocaleTimeString(),
       timestamp: new Date(),
     };
@@ -36,10 +38,12 @@ const Chat = ({ roomId = "global" }) => {
   };
 
   const handleFileUpload = async (file) => {
+    if (!user) return;
+
     const msgData = {
       id: uuidv4(),
       text: `📎 ${file.name}`,
-      sender: user?.email || "Guest",
+      sender: user.email,
       time: new Date().toLocaleTimeString(),
       timestamp: new Date(),
     };
@@ -50,6 +54,9 @@ const Chat = ({ roomId = "global" }) => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  if (loading) return <div className="p-6 text-center">Loading chat...</div>;
+  if (!user) return <div className="p-6 text-center text-red-500">Please log in to use chat.</div>;
 
   return (
     <div className="w-full max-w-xl mx-auto p-4 border rounded shadow-md bg-white">

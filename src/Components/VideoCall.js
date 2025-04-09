@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import VideoControls from "./VideoControls";
 import { useNavigate } from "react-router-dom";
 
-const socket = io("http://localhost:5000");
+const socket = io("http://localhost:5050");
 
 const VideoCall = ({ roomId = "call-room" }) => {
   const localVideoRef = useRef(null);
@@ -15,48 +15,52 @@ const VideoCall = ({ roomId = "call-room" }) => {
 
   useEffect(() => {
     const setup = async () => {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localVideoRef.current.srcObject = mediaStream;
-      setStream(mediaStream);
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideoRef.current.srcObject = mediaStream;
+        setStream(mediaStream);
 
-      const pc = new RTCPeerConnection();
-      mediaStream.getTracks().forEach(track => {
-        const sender = pc.addTrack(track, mediaStream);
-        track.__sender = sender;
-      });
+        const pc = new RTCPeerConnection();
+        mediaStream.getTracks().forEach(track => {
+          const sender = pc.addTrack(track, mediaStream);
+          track.__sender = sender;
+        });
 
-      socket.emit("join_room", roomId);
+        socket.emit("join_room", roomId);
 
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit("ice-candidate", { room: roomId, candidate: event.candidate });
-        }
-      };
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.emit("ice-candidate", { room: roomId, candidate: event.candidate });
+          }
+        };
 
-      pc.ontrack = (event) => {
-        remoteVideoRef.current.srcObject = event.streams[0];
-      };
+        pc.ontrack = (event) => {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        };
 
-      socket.on("offer", async (data) => {
-        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit("answer", { room: roomId, answer });
-      });
+        socket.on("offer", async (data) => {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socket.emit("answer", { room: roomId, answer });
+        });
 
-      socket.on("answer", async (data) => {
-        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-      });
+        socket.on("answer", async (data) => {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        });
 
-      socket.on("ice-candidate", (data) => {
-        pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-      });
+        socket.on("ice-candidate", (data) => {
+          pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        });
 
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      socket.emit("offer", { room: roomId, offer });
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit("offer", { room: roomId, offer });
 
-      setPeerConnection(pc);
+        setPeerConnection(pc);
+      } catch (err) {
+        console.error("Video call setup error:", err);
+      }
     };
 
     setup();
@@ -64,9 +68,9 @@ const VideoCall = ({ roomId = "call-room" }) => {
 
   const leaveCall = () => {
     peerConnection?.close();
-    stream?.getTracks().forEach((track) => track.stop());
+    stream?.getTracks().forEach(track => track.stop());
     socket.disconnect();
-    navigate("/dashboard");
+    navigate("/chat");
   };
 
   const triggerReaction = (emoji) => {
@@ -92,7 +96,7 @@ const VideoCall = ({ roomId = "call-room" }) => {
         <button onClick={() => triggerReaction("🔥")} className="text-2xl">🔥</button>
       </div>
 
-      <VideoControls stream={stream} onLeave={leaveCall} />
+      {stream && <VideoControls stream={stream} onLeave={leaveCall} />}
     </div>
   );
 };

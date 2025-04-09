@@ -3,38 +3,39 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, storage } from '../Utils/firebase';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getAuth } from 'firebase/auth';
+import { useAuth } from '../Context/AuthContext';
 
 const Profile = () => {
   const { userId } = useParams();
   const navigate = useNavigate();
-  const auth = getAuth();
-  const [user, setUser] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const { user, loading } = useAuth();
+  const [profileData, setProfileData] = useState(null);
   const [formData, setFormData] = useState({});
   const [file, setFile] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    const checkAccess = () => {
-      const currentUser = auth.currentUser;
-      if (!currentUser || !currentUser.emailVerified) {
-        alert('You must verify your email before accessing your profile.');
-        navigate('/login');
-      }
-    };
-
     const fetchUser = async () => {
-      checkAccess();
+      if (!user || !user.emailVerified || user.uid !== userId) {
+        alert("Access denied or user not verified.");
+        return navigate("/login");
+      }
+
       const docRef = doc(db, 'users', userId);
       const docSnap = await getDoc(docRef);
+
       if (docSnap.exists()) {
-        setUser(docSnap.data());
+        setProfileData(docSnap.data());
         setFormData(docSnap.data());
+      } else {
+        console.warn("No user found.");
       }
     };
 
-    fetchUser();
-  }, [userId, auth, navigate]);
+    if (!loading) {
+      fetchUser();
+    }
+  }, [userId, user, navigate, loading]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -49,13 +50,18 @@ const Profile = () => {
       let profilePicUrl = formData.profilePic;
 
       if (file) {
-        if (user.profilePic) {
-          const storageRef = ref(storage, user.profilePic);
-          await deleteObject(storageRef);
+        if (profileData.profilePic) {
+          try {
+            const oldRef = ref(storage, profileData.profilePic);
+            await deleteObject(oldRef);
+          } catch (err) {
+            console.warn("Old image deletion failed:", err.message);
+          }
         }
 
-        const storageRef = ref(storage, `profile_pics/${file.name}`);
-        const snapshot = await uploadBytes(storageRef, file);
+        const cleanFileName = file.name.replace(/\s+/g, "-");
+        const newRef = ref(storage, `profile_pics/${userId}-${cleanFileName}`);
+        const snapshot = await uploadBytes(newRef, file);
         profilePicUrl = await getDownloadURL(snapshot.ref);
       }
 
@@ -64,14 +70,14 @@ const Profile = () => {
         profilePic: profilePicUrl,
       });
 
-      setUser({ ...formData, profilePic: profilePicUrl });
+      setProfileData({ ...formData, profilePic: profilePicUrl });
       setIsEditing(false);
-    } catch (error) {
-      console.error("Error saving profile:", error);
+    } catch (err) {
+      console.error("Error updating profile:", err);
     }
   };
 
-  if (!user) return <div>Loading...</div>;
+  if (loading || !profileData) return <div className="p-6 text-center text-lg">Loading profile...</div>;
 
   return (
     <div className="container mx-auto p-4">
@@ -79,24 +85,23 @@ const Profile = () => {
 
       <div className="flex items-center mb-4">
         <img
-          src={user.profilePic || 'https://via.placeholder.com/150'}
+          src={profileData.profilePic || 'https://via.placeholder.com/150'}
           alt="Profile"
-          className="w-24 h-24 rounded-full"
+          className="w-24 h-24 rounded-full object-cover"
         />
         {isEditing && (
-          <input type="file" onChange={handleFileChange} className="ml-4 block w-full text-sm" />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="ml-4 block w-full text-sm"
+          />
         )}
       </div>
 
       {[
-        'firstName',
-        'lastName',
-        'dob',
-        'email',
-        'gender',
-        'city',
-        'state',
-        'phone',
+        'firstName', 'lastName', 'dob', 'email',
+        'gender', 'city', 'state', 'phone'
       ].map((field) => (
         <div key={field} className="mb-4">
           <label htmlFor={field} className="block text-sm font-medium text-gray-700">
@@ -107,12 +112,12 @@ const Profile = () => {
               id={field}
               name={field}
               type={field === 'dob' ? 'date' : 'text'}
-              value={formData[field]}
+              value={formData[field] || ''}
               onChange={handleChange}
               className="w-full p-2 mt-1 border border-gray-300 rounded-lg"
             />
           ) : (
-            <p>{user[field]}</p>
+            <p>{profileData[field]}</p>
           )}
         </div>
       ))}
